@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/grafana/k6/js/modules"
+	"go.k6.io/k6/js/modules"
 	"github.com/xitongsys/parquet-go/reader"
 )
 
