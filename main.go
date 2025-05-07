@@ -4,7 +4,6 @@ import (
     "bytes"
     "context"
     "fmt"
-    "io"
     "go.k6.io/k6/js/modules"
     "github.com/xitongsys/parquet-go/source"
     "github.com/xitongsys/parquet-go/reader"
@@ -19,6 +18,10 @@ type MemoryFileReader struct {
 
 func (m *MemoryFileReader) Read(b []byte) (n int, err error) {
     return m.data.Read(b)
+}
+
+func (m *MemoryFileReader) Write(p []byte) (n int, err error) {
+    return m.data.Write(p)
 }
 
 func (m *MemoryFileReader) Close() error {
