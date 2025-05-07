@@ -54,3 +54,5 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/guregu/null.v3 v3.3.0 // indirect
 )
+
+replace go.k6.io/k6 => github.com/grafana/k6 v0.54.0
