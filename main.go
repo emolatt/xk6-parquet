@@ -74,12 +74,6 @@ func (pr *ParquetReader) ReadBuffer(buf []byte, num int) ([]map[string]interface
 	return result, nil
 }
 
-// MemoryFileReader implements the ParquetFile interface to allow reading from memory
-type MemoryFileReader struct {
-	*bytes.Reader
-	mu sync.Mutex
-}
-
 // NewMemoryFileReader creates a new in-memory reader for Parquet data
 func NewMemoryFileReader(data []byte) source.ParquetFile {
 	return &MemoryFileReader{
