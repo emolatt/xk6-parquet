@@ -1,17 +1,16 @@
 package modules
 
 import (
-    "bytes"
-    "context"
     "fmt"
     "go.k6.io/k6/js/modules"
     "github.com/xitongsys/parquet-go/source"
     "github.com/xitongsys/parquet-go/reader"
 )
 
+// ParquetModule represents the Parquet module
 type ParquetModule struct{}
 
-// MemoryFileReader implements the ParquetFile interface
+// MemoryFileReader implements the ParquetFile interface for reading from memory
 type MemoryFileReader struct {
     data []byte
 }
@@ -24,6 +23,11 @@ func (m *MemoryFileReader) Close() error {
     return nil
 }
 
+// Implement Create method as a dummy since we're not writing files
+func (m *MemoryFileReader) Create(path string) error {
+    return nil // no actual file creation needed
+}
+
 func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
     return m, nil
 }
@@ -32,7 +36,7 @@ func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
     return 0, fmt.Errorf("seek not supported")
 }
 
-// ReadParquetFromByteArray reads a Parquet file from a byte array and returns a map representation
+// ReadParquetFromByteArray reads parquet data from byte array and returns it as a map
 func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data []byte) (map[string]interface{}, error) {
     // Create a new memory reader for the data
     parquetReader, err := reader.NewParquetReader(&MemoryFileReader{data: data}, nil, 1)
@@ -74,6 +78,7 @@ func (m *ParquetModule) NewModuleInstance(vu modules.VU) (modules.Instance, erro
     return m, nil
 }
 
+// New creates a new ParquetModule instance
 func New() modules.Module {
     return &ParquetModule{}
 }
