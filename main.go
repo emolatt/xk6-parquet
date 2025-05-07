@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"errors"
 
 	"github.com/xitongsys/parquet-go/reader"
 	"github.com/xitongsys/parquet-go/source"
@@ -102,3 +103,7 @@ func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
     return nil, errors.New("not implemented: Create")
 }
 
+func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
+	// Mivel csak egy memória buffered van, ignoráljuk a `name` paramétert
+	return m, nil
+}
