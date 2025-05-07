@@ -1,62 +1,86 @@
 package modules
 
 import (
+    "context"
     "fmt"
-    "go.k6.io/k6/js/modules"
-    "github.com/xitongsys/parquet-go/source"
+    "io"
+
     "github.com/xitongsys/parquet-go/reader"
+    "github.com/xitongsys/parquet-go/source"
+    "go.k6.io/k6/js/common"
+    "go.k6.io/k6/js/modules"
 )
 
-// ParquetModule represents the Parquet module
 type ParquetModule struct{}
 
-// MemoryFileReader implements the ParquetFile interface for reading from memory
 type MemoryFileReader struct {
     data []byte
+    pos  int64
 }
 
-func (m *MemoryFileReader) Read(b []byte) (n int, err error) {
-    return copy(b, m.data), nil
+func (m *MemoryFileReader) Read(b []byte) (int, error) {
+    if m.pos >= int64(len(m.data)) {
+        return 0, io.EOF
+    }
+    n := copy(b, m.data[m.pos:])
+    m.pos += int64(n)
+    return n, nil
+}
+
+func (m *MemoryFileReader) Write(p []byte) (int, error) {
+    return 0, fmt.Errorf("write not supported on MemoryFileReader")
+}
+
+func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
+    var newPos int64
+    switch whence {
+    case io.SeekStart:
+        newPos = offset
+    case io.SeekCurrent:
+        newPos = m.pos + offset
+    case io.SeekEnd:
+        newPos = int64(len(m.data)) + offset
+    default:
+        return 0, fmt.Errorf("invalid whence: %d", whence)
+    }
+    if newPos < 0 || newPos > int64(len(m.data)) {
+        return 0, fmt.Errorf("invalid seek position")
+    }
+    m.pos = newPos
+    return m.pos, nil
 }
 
 func (m *MemoryFileReader) Close() error {
     return nil
 }
 
-// Implement Create method as a dummy since we're not writing files
-func (m *MemoryFileReader) Create(path string) (source.ParquetFile, error) {
-    return m, nil
-}
-
 func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
     return m, nil
 }
 
-func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
-    return 0, fmt.Errorf("seek not supported")
+func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
+    return m, nil
 }
 
 // ReadParquetFromByteArray reads parquet data from byte array and returns it as a map
-func (m *ParquetModule) ReadParquetFromByteArray(jsContext modules.VU, data []byte) (map[string]interface{}, error) {
-    // Create a new memory reader for the data
-    parquetReader, err := reader.NewParquetReader(&MemoryFileReader{data: data}, nil, 1)
+func (m *ParquetModule) ReadParquetFromByteArray(ctx context.Context, data []byte) (map[string]interface{}, error) {
+    memReader := &MemoryFileReader{data: data}
+    parquetReader, err := reader.NewParquetReader(memReader, nil, 1)
     if err != nil {
         return nil, fmt.Errorf("failed to create parquet reader: %v", err)
     }
+    defer parquetReader.ReadStop()
 
-    // Read a row (you can adjust this to your use case)
     rows, err := parquetReader.ReadByNumber(1)
     if err != nil {
         return nil, fmt.Errorf("failed to read parquet rows: %v", err)
     }
 
-    // For simplicity, let's return the first row as a JSON map
     result := make(map[string]interface{})
     if len(rows) > 0 {
-        // Ensure that the row is of type map[string]interface{}
-        if row, ok := rows[0].(*map[string]interface{}); ok {
-            for key, value := range *row {
-                result[key] = value
+        if row, ok := rows[0].(map[string]interface{}); ok {
+            for k, v := range row {
+                result[k] = v
             }
         } else {
             return nil, fmt.Errorf("unexpected row type")
@@ -66,19 +90,20 @@ func (m *ParquetModule) ReadParquetFromByteArray(jsContext modules.VU, data []by
     return result, nil
 }
 
-// Exports returns the functions that should be available in JS
+// Exports returns the JS-visible exports
 func (m *ParquetModule) Exports() modules.Exports {
     return modules.Exports{
-        "readParquetFromByteArray": m.ReadParquetFromByteArray,
+        Named: map[string]interface{}{
+            "readParquetFromByteArray": m.ReadParquetFromByteArray,
+        },
     }
 }
 
-// NewModuleInstance returns the instance of the module
-func (m *ParquetModule) NewModuleInstance(vu modules.VU) (modules.Instance, error) {
-    return m, nil
+// NewModuleInstance returns a new instance per VU
+func (m *ParquetModule) NewModuleInstance(vu modules.VU) modules.Instance {
+    return &ParquetModule{}
 }
 
-// New creates a new ParquetModule instance
 func New() modules.Module {
     return &ParquetModule{}
 }
