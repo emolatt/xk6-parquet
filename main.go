@@ -2,7 +2,9 @@ package modules
 
 import (
     "bytes"
+    "context"
     "fmt"
+    "io"
     "go.k6.io/k6/js/modules"
     "github.com/xitongsys/parquet-go/source"
     "github.com/xitongsys/parquet-go/reader"
@@ -24,11 +26,15 @@ func (m *MemoryFileReader) Close() error {
 }
 
 func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
-    return m, nil // Mivel memóriában dolgozunk, egyszerűen visszaadjuk magát az olvasót
+    return m, nil
 }
 
-func (m *MemoryFileReader) Create(string) (source.ParquetFile, error) {
-    return m, nil // Visszaadjuk magát a MemoryFileReader-t
+func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
+    return m.data.Seek(offset, whence)
+}
+
+func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
+    return m, nil
 }
 
 // ReadParquetFromByteArray reads a Parquet file from a byte array and returns a map representation
@@ -64,7 +70,7 @@ func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data
 // Exports returns the functions that should be available in JS
 func (m *ParquetModule) Exports() modules.Exports {
     return modules.Exports{
-        "ReadParquetFromByteArray": m.ReadParquetFromByteArray,
+        "readParquetFromByteArray": m.ReadParquetFromByteArray,
     }
 }
 
