@@ -13,15 +13,11 @@ type ParquetModule struct{}
 
 // MemoryFileReader implements the ParquetFile interface
 type MemoryFileReader struct {
-    data *bytes.Reader
+    data []byte
 }
 
 func (m *MemoryFileReader) Read(b []byte) (n int, err error) {
-    return m.data.Read(b)
-}
-
-func (m *MemoryFileReader) Write(p []byte) (n int, err error) {
-    return m.data.Write(p)
+    return copy(b, m.data), nil
 }
 
 func (m *MemoryFileReader) Close() error {
@@ -33,17 +29,13 @@ func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
 }
 
 func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
-    return m.data.Seek(offset, whence)
-}
-
-func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
-    return m, nil
+    return 0, fmt.Errorf("seek not supported")
 }
 
 // ReadParquetFromByteArray reads a Parquet file from a byte array and returns a map representation
 func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data []byte) (map[string]interface{}, error) {
     // Create a new memory reader for the data
-    parquetReader, err := reader.NewParquetReader(&MemoryFileReader{data: bytes.NewReader(data)}, nil, 1)
+    parquetReader, err := reader.NewParquetReader(&MemoryFileReader{data: data}, nil, 1)
     if err != nil {
         return nil, fmt.Errorf("failed to create parquet reader: %v", err)
     }
