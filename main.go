@@ -1,107 +1,120 @@
-package parquet
+package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
-	"sync"
+	"context"
 	"errors"
+	"io"
+	"sync"
 
+	"go.k6.io/k6/js/modules"
 	"github.com/xitongsys/parquet-go/reader"
 	"github.com/xitongsys/parquet-go/source"
-	"go.k6.io/k6/js/modules"
 )
 
-// Register the extension with the k6 runtime
-func init() {
-	modules.Register("k6/x/parquet", New())
-}
-
-// RootModule implements the k6 modules.Module interface
-type RootModule struct{}
-
-// New returns a new instance of the module
-func New() modules.Module {
-	return &RootModule{}
-}
-
-// NewModuleInstance is called for each VU (virtual user)
-func (r *RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
-	return &ParquetReader{vu: vu}
-}
-
-// ParquetReader represents the module instance for a VU
-type ParquetReader struct {
-	vu modules.VU
-}
-
+// ---- MemoryFileReader definíció ----
 type MemoryFileReader struct {
-	buf *bytes.Buffer
+	mu     sync.Mutex
+	Reader *bytes.Reader
+	buf    *bytes.Buffer
 }
 
-// Exports defines the JavaScript API surface
-func (pr *ParquetReader) Exports() modules.Exports {
-	return modules.Exports{
-		Named: map[string]interface{}{
-			"readBuffer": pr.ReadBuffer,
-		},
-	}
-}
-
-// ReadBuffer reads Parquet data from a byte buffer (e.g. Uint8Array from HTTP response)
-func (pr *ParquetReader) ReadBuffer(buf []byte, num int) ([]map[string]interface{}, error) {
-	fr := NewMemoryFileReader(buf)
-
-	prdr, err := reader.NewParquetReader(fr, nil, int64(num))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create parquet reader: %w", err)
-	}
-	defer prdr.ReadStop()
-
-	raw, err := prdr.ReadByNumber(num)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read parquet data: %w", err)
-	}
-
-	result := make([]map[string]interface{}, 0, len(raw))
-	for _, record := range raw {
-		b, _ := json.Marshal(record)
-		var m map[string]interface{}
-		_ = json.Unmarshal(b, &m)
-		result = append(result, m)
-	}
-
-	return result, nil
-}
-
-// NewMemoryFileReader creates a new in-memory reader for Parquet data
-func NewMemoryFileReader(data []byte) source.ParquetFile {
-	return &MemoryFileReader{
-		Reader: bytes.NewReader(data),
-	}
-}
-
-func (r *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.Reader.Seek(offset, whence)
-}
-
-func (r *MemoryFileReader) Read(p []byte) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.Reader.Read(p)
-}
-
-func (r *MemoryFileReader) Close() error {
-	return nil
-}
-
-func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
-	// Mivel csak egy memória buffered van, ignoráljuk a `name` paramétert
+func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.buf = new(bytes.Buffer)
+	m.Reader = nil
 	return m, nil
 }
 
-func (m *MemoryFileReader) Write(p []byte) (n int, err error) {
+func (m *MemoryFileReader) Write(p []byte) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.buf == nil {
+		return 0, errors.New("buffer not initialized")
+	}
 	return m.buf.Write(p)
+}
+
+func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.buf == nil {
+		return nil, errors.New("buffer not initialized")
+	}
+	m.Reader = bytes.NewReader(m.buf.Bytes())
+	return m, nil
+}
+
+func (m *MemoryFileReader) Read(p []byte) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Reader == nil {
+		return 0, errors.New("reader not initialized")
+	}
+	return m.Reader.Read(p)
+}
+
+func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Reader == nil {
+		return 0, errors.New("reader not initialized")
+	}
+	return m.Reader.Seek(offset, whence)
+}
+
+func (m *MemoryFileReader) Close() error {
+	return nil
+}
+
+func (m *MemoryFileReader) Name() string {
+	return "memory"
+}
+
+// ---- JS modul ----
+
+type Parquet struct{}
+
+func (p *Parquet) ReadParquetFromBytes(_ context.Context, data []byte) ([]map[string]interface{}, error) {
+	mem := &MemoryFileReader{}
+	if _, err := mem.Create("in-memory"); err != nil {
+		return nil, err
+	}
+
+	if _, err := mem.Write(data); err != nil {
+		return nil, err
+	}
+
+	if _, err := mem.Open("in-memory"); err != nil {
+		return nil, err
+	}
+
+	pr, err := reader.NewParquetReader(mem, nil, 1)
+	if err != nil {
+		return nil, err
+	}
+	defer pr.ReadStop()
+
+	num := int(pr.GetNumRows())
+	res := make([]map[string]interface{}, 0, num)
+
+	for i := 0; i < num; i += 10 {
+		count := 10
+		if i+10 > num {
+			count = num - i
+		}
+		rows := make([]map[string]interface{}, 0)
+		if err := pr.Read(&rows); err != nil && err != io.EOF {
+			return nil, err
+		}
+		res = append(res, rows...)
+	}
+
+	return res, nil
+}
+
+// Module export
+func init() {
+	modules.Register("k6/x/parquet", new(Parquet))
 }
