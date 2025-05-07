@@ -56,3 +56,4 @@ require (
 )
 
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20240822170219-fc7c04adadcd
+replace go.k6.io/k6 => github.com/grafana/k6 v0.54.0
