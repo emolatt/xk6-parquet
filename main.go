@@ -23,9 +23,9 @@ func (m *MemoryFileReader) Close() error {
 	return nil
 }
 
-func (m *MemoryFileReader) Create() error {
-	// MemoryFileReader does not need to actually create anything.
-	return nil
+// Create method should accept a string parameter (file path or name) and return a ParquetFile.
+func (m *MemoryFileReader) Create(string) (reader.ParquetFile, error) {
+	return m, nil // Return itself as a valid ParquetFile
 }
 
 // ReadParquetFromByteArray reads a Parquet file from a byte array and returns a map representation.
@@ -45,23 +45,29 @@ func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data
 	// For simplicity, let's return the first row as a JSON map
 	result := make(map[string]interface{})
 	if len(rows) > 0 {
-		for key, value := range rows[0].(*map[string]interface{}) {
-			result[key] = value
+		// Ensure that the row is of type map[string]interface{}
+		if row, ok := rows[0].(*map[string]interface{}); ok {
+			for key, value := range *row {
+				result[key] = value
+			}
+		} else {
+			return nil, fmt.Errorf("unexpected row type")
 		}
 	}
 
 	return result, nil
 }
 
-// ---- JS module ----
-func (m *ParquetModule) NewModuleInstance(ctx context.Context, config map[string]interface{}) (modules.Instance, error) {
-	return m, nil
-}
-
+// Exports returns the functions that should be available in JS
 func (m *ParquetModule) Exports() map[string]interface{} {
 	return map[string]interface{}{
 		"ReadParquetFromByteArray": m.ReadParquetFromByteArray,
 	}
+}
+
+// NewModuleInstance returns the instance of the module
+func (m *ParquetModule) NewModuleInstance(vu modules.VU) (modules.Instance, error) {
+	return m, nil
 }
 
 func New() modules.Module {
