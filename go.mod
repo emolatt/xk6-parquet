@@ -1,6 +1,6 @@
 module github.com/emolatt/xk6-parquet
 
-go 1.24.3
+go 1.24
 
 require (
 	buf.build/gen/go/gogo/protobuf/protocolbuffers/go v1.36.5-20210810001428-4df00b267f94.1 // indirect
