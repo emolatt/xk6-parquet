@@ -7,7 +7,6 @@ import (
 
     "github.com/xitongsys/parquet-go/reader"
     "github.com/xitongsys/parquet-go/source"
-    "go.k6.io/k6/js/common"
     "go.k6.io/k6/js/modules"
 )
 
