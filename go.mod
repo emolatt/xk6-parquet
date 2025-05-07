@@ -1,6 +1,6 @@
 module github.com/emolatt/xk6-parquet
 
-go 1.24
+go 1.24.2
 
 require (
 	github.com/xitongsys/parquet-go v1.6.2
