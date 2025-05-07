@@ -37,6 +37,10 @@ func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
     return 0, fmt.Errorf("seek not supported")
 }
 
+func (m *MemoryFileReader) Write(b []byte) (n int, err error) {
+    return 0, fmt.Errorf("Write not supported") // Vagy implementáld a kívánt logikát
+}
+
 // ReadParquetFromByteArray reads parquet data from byte array and returns it as a map
 func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data []byte) (map[string]interface{}, error) {
     // Create a new memory reader for the data
