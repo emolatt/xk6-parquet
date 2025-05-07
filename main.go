@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"github.com/xitongsys/parquet-go/reader"
 	"go.k6.io/k6/js/modules"
+	"github.com/xitongsys/parquet-go/reader"
 )
 
 type ParquetModule struct{}
@@ -21,6 +20,11 @@ func (m *MemoryFileReader) Read(b []byte) (n int, err error) {
 }
 
 func (m *MemoryFileReader) Close() error {
+	return nil
+}
+
+func (m *MemoryFileReader) Create() error {
+	// MemoryFileReader does not need to actually create anything.
 	return nil
 }
 
@@ -40,22 +44,30 @@ func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data
 
 	// For simplicity, let's return the first row as a JSON map
 	result := make(map[string]interface{})
-	for key, value := range rows[0].(*map[string]interface{}) {
-		result[key] = value
+	if len(rows) > 0 {
+		for key, value := range rows[0].(*map[string]interface{}) {
+			result[key] = value
+		}
 	}
 
 	return result, nil
 }
 
 // ---- JS module ----
+func (m *ParquetModule) NewModuleInstance(ctx context.Context, config map[string]interface{}) (modules.Instance, error) {
+	return m, nil
+}
+
+func (m *ParquetModule) Exports() map[string]interface{} {
+	return map[string]interface{}{
+		"ReadParquetFromByteArray": m.ReadParquetFromByteArray,
+	}
+}
+
 func New() modules.Module {
 	return &ParquetModule{}
 }
 
 func init() {
 	modules.Register("k6/xk6-parquet", New)
-}
-
-func (m *ParquetModule) NewModuleInstance(ctx context.Context, config map[string]interface{}) (modules.Instance, error) {
-	return m, nil
 }
