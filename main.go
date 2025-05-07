@@ -1,113 +1,117 @@
-package parquet
+package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
-	"sync"
 	"errors"
+	"io"
 
-	"github.com/xitongsys/parquet-go/reader"
 	"github.com/xitongsys/parquet-go/source"
+	"github.com/xitongsys/parquet-go/reader"
+	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
+	"go.k6.io/k6/js/modules/k6"
+
+	"github.com/dop251/goja"
 )
 
-// Register the extension with the k6 runtime
 func init() {
 	modules.Register("k6/x/parquet", New())
 }
 
-// RootModule implements the k6 modules.Module interface
-type RootModule struct{}
+// Parquet is the k6 extension module
+type Parquet struct{}
 
-// New returns a new instance of the module
-func New() modules.Module {
-	return &RootModule{}
+// Ensure Parquet implements the modules.Instance interface
+var _ modules.Instance = &Parquet{}
+
+// New returns a new instance of the parquet module
+func New() modules.Instance {
+	return &Parquet{}
 }
 
-// NewModuleInstance is called for each VU (virtual user)
-func (r *RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
-	return &ParquetReader{vu: vu}
+// Exports returns the exported functions from the module
+func (p *Parquet) Exports() modules.Exports {
+	return modules.Exports{
+		Default: &ParquetModule{},
+	}
 }
 
-// ParquetReader represents the module instance for a VU
-type ParquetReader struct {
+// ParquetModule contains the actual functionality exposed to JS
+type ParquetModule struct {
 	vu modules.VU
 }
 
-// Exports defines the JavaScript API surface
-func (pr *ParquetReader) Exports() modules.Exports {
-	return modules.Exports{
-		Named: map[string]interface{}{
-			"readBuffer": pr.ReadBuffer,
-		},
-	}
+func (p *ParquetModule) SetVU(vu modules.VU) {
+	p.vu = vu
 }
 
-// ReadBuffer reads Parquet data from a byte buffer (e.g. Uint8Array from HTTP response)
-func (pr *ParquetReader) ReadBuffer(buf []byte, num int) ([]map[string]interface{}, error) {
-	fr := NewMemoryFileReader(buf)
+func (p *ParquetModule) Reset() {}
 
-	prdr, err := reader.NewParquetReader(fr, nil, int64(num))
+func (p *ParquetModule) ReadParquetBytes(data goja.Value) goja.Value {
+	rt := p.vu.Runtime()
+
+	// Convert the input Uint8Array to a Go []byte
+	jsBuf := data.ToObject(rt)
+	length := jsBuf.Get("length").ToInteger()
+	goBuf := make([]byte, length)
+	for i := int64(0); i < length; i++ {
+		goBuf[i] = byte(jsBuf.Get(i).ToInteger())
+	}
+
+	reader := &MemoryFileReader{
+		buf: bytes.NewBuffer(goBuf),
+	}
+
+	pr, err := reader.NewParquetReader()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create parquet reader: %w", err)
-	}
-	defer prdr.ReadStop()
-
-	raw, err := prdr.ReadByNumber(num)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read parquet data: %w", err)
+		common.Throw(rt, err)
 	}
 
-	result := make([]map[string]interface{}, 0, len(raw))
-	for _, record := range raw {
-		b, _ := json.Marshal(record)
-		var m map[string]interface{}
-		_ = json.Unmarshal(b, &m)
-		result = append(result, m)
+	num := int(pr.GetNumRows())
+	res := make([]map[string]interface{}, num)
+
+	if err := pr.Read(&res); err != nil {
+		common.Throw(rt, err)
 	}
 
-	return result, nil
+	pr.ReadStop()
+	return rt.ToValue(res)
 }
 
-// MemoryFileReader implements the ParquetFile interface to allow reading from memory
+// MemoryFileReader implements the source.ParquetFile interface from parquet-go,
+// wrapping a byte buffer so we can read from in-memory data
 type MemoryFileReader struct {
-	*bytes.Reader
-	mu sync.Mutex
-}
-
-// NewMemoryFileReader creates a new in-memory reader for Parquet data
-func NewMemoryFileReader(data []byte) source.ParquetFile {
-	return &MemoryFileReader{
-		Reader: bytes.NewReader(data),
-	}
-}
-
-func (r *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.Reader.Seek(offset, whence)
-}
-
-func (r *MemoryFileReader) Read(p []byte) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.Reader.Read(p)
-}
-
-func (r *MemoryFileReader) Close() error {
-	return nil
+	buf *bytes.Buffer
 }
 
 func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
-    return nil, errors.New("not implemented: Create")
+	return nil, errors.New("not implemented")
 }
 
 func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
-	// Mivel csak egy memória buffered van, ignoráljuk a `name` paramétert
-	return m, nil
+	return nil, errors.New("not implemented")
 }
 
-func (m *MemoryFileReader) Write(p []byte) (n int, err error) {
-	return m.buf.Write(p)
+func (m *MemoryFileReader) Seek(offset int64, whence int) (int64, error) {
+	return m.buf.Seek(offset, whence)
+}
+
+func (m *MemoryFileReader) Read(p []byte) (int, error) {
+	return m.buf.Read(p)
+}
+
+func (m *MemoryFileReader) Write(p []byte) (int, error) {
+	return 0, errors.New("write not supported")
+}
+
+func (m *MemoryFileReader) Close() error {
+	return nil
+}
+
+func (m *MemoryFileReader) Name() string {
+	return "memory"
+}
+
+func (m *MemoryFileReader) NewParquetReader() (*reader.ParquetReader, error) {
+	return reader.NewParquetReader(m, nil, int64(4))
 }
