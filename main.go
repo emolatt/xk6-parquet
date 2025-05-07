@@ -107,3 +107,7 @@ func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
 	// Mivel csak egy memória buffered van, ignoráljuk a `name` paramétert
 	return m, nil
 }
+
+func (m *MemoryFileReader) Write(p []byte) (n int, err error) {
+	return m.buf.Write(p)
+}
