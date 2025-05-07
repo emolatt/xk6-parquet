@@ -5,6 +5,7 @@ import (
     "go.k6.io/k6/js/modules"
     "github.com/xitongsys/parquet-go/source"
     "github.com/xitongsys/parquet-go/reader"
+    "context" // importáld be a context csomagot
 )
 
 // ParquetModule represents the Parquet module
@@ -24,8 +25,8 @@ func (m *MemoryFileReader) Close() error {
 }
 
 // Implement Create method as a dummy since we're not writing files
-func (m *MemoryFileReader) Create(path string) error {
-    return nil // no actual file creation needed
+func (m *MemoryFileReader) Create(path string) (source.ParquetFile, error) {
+    return m, nil // return the MemoryFileReader itself as the ParquetFile
 }
 
 func (m *MemoryFileReader) Open(name string) (source.ParquetFile, error) {
