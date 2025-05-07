@@ -108,5 +108,5 @@ func New() modules.Module {
 }
 
 func init() {
-    modules.Register("k6/xk6-parquet", New)
+    modules.Register("k6/x/xk6-parquet", New)
 }
