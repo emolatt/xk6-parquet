@@ -2,7 +2,6 @@ package parquet
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -98,3 +97,8 @@ func (r *MemoryFileReader) Read(p []byte) (int, error) {
 func (r *MemoryFileReader) Close() error {
 	return nil
 }
+
+func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
+    return nil, errors.New("not implemented: Create")
+}
+
