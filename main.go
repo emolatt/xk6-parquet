@@ -2,6 +2,7 @@ package modules
 
 import (
     "bytes"
+    "context"
     "fmt"
     "go.k6.io/k6/js/modules"
     "github.com/xitongsys/parquet-go/source"
@@ -23,12 +24,15 @@ func (m *MemoryFileReader) Close() error {
     return nil
 }
 
-// Create method should accept a string parameter (file path or name) and return a ParquetFile.
-func (m *MemoryFileReader) Create(string) (source.ParquetFile, error) {
-    return m, nil // Return itself as a valid ParquetFile
+func (m *MemoryFileReader) Open(name string) error {
+    return nil // Since we're working with in-memory data, no actual file is opened
 }
 
-// ReadParquetFromByteArray reads a Parquet file from a byte array and returns a map representation.
+func (m *MemoryFileReader) Create(string) (source.ParquetFile, error) {
+    return m, nil // Return the MemoryFileReader as a ParquetFile
+}
+
+// ReadParquetFromByteArray reads a Parquet file from a byte array and returns a map representation
 func (m *ParquetModule) ReadParquetFromByteArray(jsContext context.Context, data []byte) (map[string]interface{}, error) {
     // Create a new memory reader for the data
     parquetReader, err := reader.NewParquetReader(&MemoryFileReader{data: bytes.NewReader(data)}, nil, 1)
