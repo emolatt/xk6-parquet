@@ -88,7 +88,7 @@ func ReadParquetFromByteArray(_ context.Context, data []byte) (map[string]interf
 }
 
 func init() {
-    modules.Register("k6/x/xk6-parquet", New)
+    modules.Register("k6/x/xk6-parquet", New())
 }
 
 func New() modules.Module {
