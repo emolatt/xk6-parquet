@@ -7,7 +7,7 @@ import (
 
     "github.com/xitongsys/parquet-go/reader"
     "github.com/xitongsys/parquet-go/source"
-    "go.k6.io/k6/js/modules"
+    k6modules "go.k6.io/k6/js/modules"
 )
 
 type Parquet struct{}
@@ -88,12 +88,12 @@ func ReadParquetFromByteArray(_ context.Context, data []byte) (map[string]interf
 }
 
 func init() {
-    modules.Register("k6/x/xk6-parquet", New())
+    k6modules.Register("k6/x/xk6-parquet", New())
 }
 
-func New() modules.Module {
-    return modules.Module{
-        Exports: modules.Exports{
+func New() k6modules.Module {
+    return k6modules.Module{
+        Exports: k6modules.Exports{
             Named: map[string]interface{}{
                 "readParquetFromByteArray": ReadParquetFromByteArray,
             },
