@@ -1,4 +1,4 @@
-package modules
+package xk6parquet
 
 import (
     "context"
