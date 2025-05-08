@@ -10,11 +10,17 @@ import (
 	k6modules "go.k6.io/k6/js/modules"
 )
 
-// A k6 modulstruktúra
-type parquetModule struct{}
+// Modulstruktúra, beágyazott BaseModule-lal
+type parquetModule struct {
+	k6modules.BaseModule
+}
 
-// Implementálja a k6modules.Module interface-t
-func (m *parquetModule) Exports() k6modules.Exports {
+// Modulpéldány struktúra (amit JS-ből ténylegesen elérnek)
+type parquetInstance struct {
+	k6modules.Instance
+}
+
+func (p *parquetInstance) Exports() k6modules.Exports {
 	return k6modules.Exports{
 		Named: map[string]interface{}{
 			"readParquetFromByteArray": ReadParquetFromByteArray,
@@ -22,7 +28,12 @@ func (m *parquetModule) Exports() k6modules.Exports {
 	}
 }
 
-// A memória-alapú olvasó Parquet fájlokhoz
+// Ezt hívja a k6, amikor példányosítja a modult
+func (m *parquetModule) NewModuleInstance(vu k6modules.VU) (k6modules.Instance, error) {
+	return &parquetInstance{Instance: k6modules.Instance{VU: vu}}, nil
+}
+
+// Memóriából olvasó Parquet fájl reader
 type MemoryFileReader struct {
 	data []byte
 	pos  int64
@@ -103,7 +114,6 @@ func init() {
 	k6modules.Register("k6/x/xk6-parquet", New())
 }
 
-// Modul példányosító
 func New() k6modules.Module {
 	return &parquetModule{}
 }
