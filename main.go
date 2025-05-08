@@ -99,8 +99,9 @@ func (m *ParquetModule) NewModuleInstance(vu modules.VU) modules.Instance {
 
 func (m *ParquetModule) Exports() modules.Exports {
     return modules.Exports{
-        Default: m,
-        Named:   map[string]interface{}{},
+        Named: map[string]interface{}{
+            "readParquetFromByteArray": m.ReadParquetFromByteArray,
+        },
     }
 }
 
