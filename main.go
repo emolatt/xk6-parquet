@@ -92,6 +92,7 @@ func (m *ParquetModule) ReadParquetFromByteArray(ctx context.Context, data []byt
 // Exports returns the JS-visible exports
 func (m *ParquetModule) Exports() modules.Exports {
     return modules.Exports{
+        Default: m,
         Named: map[string]interface{}{
             "readParquetFromByteArray": m.ReadParquetFromByteArray,
         },
