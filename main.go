@@ -12,6 +12,10 @@ import (
 
 type ParquetModule struct{}
 
+type ParquetInstance struct {
+    modules.Instance
+}
+
 type MemoryFileReader struct {
     data []byte
     pos  int64
@@ -61,8 +65,8 @@ func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
     return m, nil
 }
 
-// ReadParquetFromByteArray reads parquet data from byte array and returns it as a map
-func (m *ParquetModule) ReadParquetFromByteArray(ctx context.Context, data []byte) (map[string]interface{}, error) {
+// Exportált JS-függvény
+func (p *ParquetInstance) ReadParquetFromByteArray(ctx context.Context, data []byte) (map[string]interface{}, error) {
     memReader := &MemoryFileReader{data: data}
     parquetReader, err := reader.NewParquetReader(memReader, nil, 1)
     if err != nil {
@@ -89,19 +93,15 @@ func (m *ParquetModule) ReadParquetFromByteArray(ctx context.Context, data []byt
     return result, nil
 }
 
-// Exports returns the JS-visible exports
+func (m *ParquetModule) NewModuleInstance(vu modules.VU) modules.Instance {
+    return &ParquetInstance{}
+}
+
 func (m *ParquetModule) Exports() modules.Exports {
     return modules.Exports{
         Default: m,
-        Named: map[string]interface{}{
-            "readParquetFromByteArray": m.ReadParquetFromByteArray,
-        },
+        Named:   map[string]interface{}{},
     }
-}
-
-// NewModuleInstance returns a new instance per VU
-func (m *ParquetModule) NewModuleInstance(vu modules.VU) modules.Instance {
-    return &ParquetModule{}
 }
 
 func New() modules.Module {
