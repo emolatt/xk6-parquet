@@ -1,4 +1,4 @@
-package parquetmod
+package main
 
 import (
 	"context"
@@ -7,33 +7,9 @@ import (
 
 	"github.com/xitongsys/parquet-go/reader"
 	"github.com/xitongsys/parquet-go/source"
-	k6modules "go.k6.io/k6/js/modules"
+	"go.k6.io/k6/js/modules"
 )
 
-// Modulstruktúra, beágyazott BaseModule-lal
-type parquetModule struct {
-	k6modules.BaseModule
-}
-
-// Modulpéldány struktúra (amit JS-ből ténylegesen elérnek)
-type parquetInstance struct {
-	k6modules.Instance
-}
-
-func (p *parquetInstance) Exports() k6modules.Exports {
-	return k6modules.Exports{
-		Named: map[string]interface{}{
-			"readParquetFromByteArray": ReadParquetFromByteArray,
-		},
-	}
-}
-
-// Ezt hívja a k6, amikor példányosítja a modult
-func (m *parquetModule) NewModuleInstance(vu k6modules.VU) (k6modules.Instance, error) {
-	return &parquetInstance{Instance: k6modules.Instance{VU: vu}}, nil
-}
-
-// Memóriából olvasó Parquet fájl reader
 type MemoryFileReader struct {
 	data []byte
 	pos  int64
@@ -83,7 +59,6 @@ func (m *MemoryFileReader) Create(name string) (source.ParquetFile, error) {
 	return m, nil
 }
 
-// A JS-ből hívható függvény
 func ReadParquetFromByteArray(_ context.Context, data []byte) (map[string]interface{}, error) {
 	memReader := &MemoryFileReader{data: data}
 	pr, err := reader.NewParquetReader(memReader, nil, 1)
@@ -109,11 +84,12 @@ func ReadParquetFromByteArray(_ context.Context, data []byte) (map[string]interf
 	return result, nil
 }
 
-// Modul regisztrálása
 func init() {
-	k6modules.Register("k6/x/xk6-parquet", New())
-}
-
-func New() k6modules.Module {
-	return &parquetModule{}
+	modules.Register("k6/x/xk6-parquet", modules.Module{
+		Exports: modules.Exports{
+			Named: map[string]interface{}{
+				"readParquetFromByteArray": ReadParquetFromByteArray,
+			},
+		},
+	})
 }
