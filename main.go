@@ -91,6 +91,7 @@ func init() {
     k6modules.Register("k6/x/xk6-parquet", New())
 }
 
+
 func New() k6modules.Module {
     return k6modules.Module{
         Exports: k6modules.Exports{
